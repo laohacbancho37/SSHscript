@@ -52,6 +52,17 @@ Write-Host "Kiểm tra trạng thái service OpenSSH Server (sshd)..."
 
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
     Write-Host "-> Service OpenSSH Server đã được cài đặt." -ForegroundColor Green
+} elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\install-sshd.ps1") {
+    Write-Host "-> Đã tìm thấy thư mục OpenSSH-Win64 trên máy, bỏ qua bước tải!" -ForegroundColor Green
+    $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
+    Push-Location $OpenSshDir
+    try {
+        & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
+    } finally {
+        Pop-Location
+    }
+} elseif (Get-Command sshd -ErrorAction SilentlyContinue) {
+    Write-Host "-> Đã tìm thấy lệnh sshd trên hệ thống, bỏ qua bước tải!" -ForegroundColor Green
 } else {
     Write-Host "Đang tải và cài đặt OpenSSH Service phiên bản mới nhất từ GitHub..."
     $ZipPath = "$env:TEMP\OpenSSH-Win64.zip"
@@ -228,46 +239,64 @@ catch {
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "3. TẢI VÀ INSTALL CLOUDFLARED SERVICE" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
+
 Write-Host "Kiểm tra và dừng các dịch vụ / tiến trình cloudflared cũ nếu đang chạy..."
 
-if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
-    Write-Host "-> Đang dừng service cloudflared cũ..." -ForegroundColor Yellow
-    Stop-Service -Name "cloudflared" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
+# Dừng Tất cả service và process cloudflared
+Get-Service -Name "*cloudflared*" -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# Thư mục cố định lưu cloudflared.exe (tránh lưu trong TEMP bị xóa gây lỗi service)
+$CloudflaredDir = "$env:ProgramFiles\cloudflared"
+if (!(Test-Path $CloudflaredDir)) {
+    New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
 }
+$CloudflaredPath = "$CloudflaredDir\cloudflared.exe"
 
-$runningProcesses = Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue
-if ($runningProcesses) {
-    Write-Host "-> Đang tắt các tiến trình cloudflared.exe đang chạy ngầm..." -ForegroundColor Yellow
-    Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
+# Gỡ bỏ service cũ qua cloudflared service uninstall VÀ sc.exe delete
+if (Test-Path $CloudflaredPath) {
+    try { & $CloudflaredPath service uninstall *>&1 | Out-Null } catch {}
 }
-
-Remove-Item -Path "$env:TEMP\cloudflared*.exe" -Force -ErrorAction SilentlyContinue
-
-$CloudflaredPath = "$env:TEMP\cloudflared_$([guid]::NewGuid().ToString('N').Substring(0,8)).exe"
-
-Write-Host "Đang tải về cloudflared-windows-amd64.exe mới nhất..."
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
-
-Write-Host "Đang gọi lệnh gỡ và cài đặt service cloudflared mới..."
-try {
-    & $CloudflaredPath service uninstall *>&1 | Out-Null
-} catch {}
+try { & sc.exe stop cloudflared *>&1 | Out-Null } catch {}
+try { & sc.exe delete cloudflared *>&1 | Out-Null } catch {}
+try { & sc.exe stop "Cloudflare Agent" *>&1 | Out-Null } catch {}
+try { & sc.exe delete "Cloudflare Agent" *>&1 | Out-Null } catch {}
 
 Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue
 
 Start-Sleep -Seconds 2
+
+# Tải cloudflared.exe mới nhất vào thư mục cố định (nếu chưa có)
+if (Test-Path $CloudflaredPath) {
+    Write-Host "-> Đã tìm thấy cloudflared.exe tại [$CloudflaredPath], bỏ qua bước tải!" -ForegroundColor Green
+}
+elseif (Test-Path "C:\Program Files (x86)\cloudflared\cloudflared.exe") {
+    Write-Host "-> Đã tìm thấy cloudflared.exe trong Program Files (x86), đang sao chép..." -ForegroundColor Green
+    Copy-Item -Path "C:\Program Files (x86)\cloudflared\cloudflared.exe" -Destination $CloudflaredPath -Force
+}
+elseif (Get-Command cloudflared -ErrorAction SilentlyContinue) {
+    $existingCmd = (Get-Command cloudflared).Source
+    Write-Host "-> Đã tìm thấy cloudflared tại [$existingCmd], đang sao chép..." -ForegroundColor Green
+    Copy-Item -Path $existingCmd -Destination $CloudflaredPath -Force
+}
+else {
+    Write-Host "Đang tải về cloudflared-windows-amd64.exe mới nhất..."
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
+}
+
+# Cài đặt service cloudflared mới với token
+Write-Host "Đang cài đặt service cloudflared mới..."
 & $CloudflaredPath service install $TunnelToken
 
+Start-Sleep -Seconds 2
 if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
     Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue
     Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue
+    Write-Host "-> Service cloudflared đã được khởi chạy thành công!" -ForegroundColor Green
+} else {
+    Write-Host "-> [CẢNH BÁO] Không tìm thấy service cloudflared sau khi install." -ForegroundColor Yellow
 }
-
-Write-Host "Dọn dẹp file tạm cài đặt..."
-Remove-Item $CloudflaredPath -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "4. CẤU HÌNH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
