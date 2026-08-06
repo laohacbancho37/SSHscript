@@ -63,11 +63,14 @@ Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "1. BẬT TÍNH NĂNG OPENSSH SERVER TRÊN WINDOWS" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "Kiem tra trang thai service OpenSSH Server (sshd) tren may..."
+$SshdFound = $false
+
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
-    Write-Host "-> Service OpenSSH Server da duoc cai dat." -ForegroundColor Green
+    Write-Host "-> Service OpenSSH Server da duoc cai dat, BO QUA BUOC TAI!" -ForegroundColor Green
+    $SshdFound = $true
 }
 elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\install-sshd.ps1") {
-    Write-Host "-> Da tim thay thu muc OpenSSH-Win64 tren may, bo qua buoc tai!" -ForegroundColor Green
+    Write-Host "-> Da tim thay thu muc OpenSSH-Win64 tren may, BO QUA BUOC TAI!" -ForegroundColor Green
     $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
     Push-Location $OpenSshDir
     try {
@@ -75,11 +78,18 @@ elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\install-sshd.ps1") {
     } finally {
         Pop-Location
     }
+    $SshdFound = $true
 }
 elseif (Get-Command sshd -ErrorAction SilentlyContinue) {
-    Write-Host "-> Da tim thay lenh sshd tren he thong, bo qua buoc tai!" -ForegroundColor Green
+    Write-Host "-> Da tim thay lenh sshd tren he thong, BO QUA BUOC TAI!" -ForegroundColor Green
+    $SshdFound = $true
 }
-else {
+elseif (Test-Path "C:\Windows\System32\OpenSSH\sshd.exe") {
+    Write-Host "-> Da tim thay OpenSSH trong System32, BO QUA BUOC TAI!" -ForegroundColor Green
+    $SshdFound = $true
+}
+
+if (-not $SshdFound) {
     Write-Host "Đang tải và cài đặt OpenSSH Service phiên bản mới nhất từ GitHub..."
     $ZipPath = "$env:TEMP\OpenSSH-Win64.zip"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -259,20 +269,43 @@ Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "3. TAI VA INSTALL CLOUDFLARED SERVICE" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 
-Write-Host "Kiem tra va dung cac dich vu / tien trinh cloudflared cu neu dang chay..."
+$CloudflaredDir = "$env:ProgramFiles\cloudflared"
+$CloudflaredPath = "$CloudflaredDir\cloudflared.exe"
 
-# Dung Tat ca service va process cloudflared
+# 1. Kiem tra va tim file cloudflared.exe co san tren may (trước khi làm gì khác)
+$FoundCloudflared = $null
+if (Test-Path $CloudflaredPath) {
+    $FoundCloudflared = $CloudflaredPath
+} elseif (Test-Path "C:\Program Files (x86)\cloudflared\cloudflared.exe") {
+    $FoundCloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
+} elseif (Get-Command cloudflared -ErrorAction SilentlyContinue) {
+    $FoundCloudflared = (Get-Command cloudflared).Source
+} elseif (Get-ChildItem "$env:TEMP\cloudflared*.exe" -ErrorAction SilentlyContinue) {
+    $FoundCloudflared = (Get-ChildItem "$env:TEMP\cloudflared*.exe" | Select-Object -First 1).FullName
+}
+
+if ($FoundCloudflared) {
+    Write-Host "-> Da tim thay cloudflared.exe tai [$FoundCloudflared], BO QUA BUOC TAI VE!" -ForegroundColor Green
+    if (!(Test-Path $CloudflaredDir)) {
+        New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
+    }
+    if ($FoundCloudflared -ne $CloudflaredPath) {
+        Copy-Item -Path $FoundCloudflared -Destination $CloudflaredPath -Force
+    }
+} else {
+    Write-Host "-> Khong tim thay cloudflared.exe tren may, dang tai ve file moi..." -ForegroundColor Yellow
+    if (!(Test-Path $CloudflaredDir)) {
+        New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
+    }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
+}
+
+# 2. Dung service cu & xoa dang ky service cu
+Write-Host "Dang dung va cap nhat service cloudflared sang Token moi..." -ForegroundColor Yellow
 Get-Service -Name "*cloudflared*" -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
 Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Thu muc co dinh luu cloudflared.exe (tranh luu trong TEMP bi xoa gay loi service)
-$CloudflaredDir = "$env:ProgramFiles\cloudflared"
-if (!(Test-Path $CloudflaredDir)) {
-    New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
-}
-$CloudflaredPath = "$CloudflaredDir\cloudflared.exe"
-
-# Go bo service cu qua cloudflared service uninstall VA sc.exe delete
 if (Test-Path $CloudflaredPath) {
     try { & $CloudflaredPath service uninstall *>&1 | Out-Null } catch {}
 }
@@ -285,36 +318,17 @@ Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\
 
 Start-Sleep -Seconds 2
 
-# Tai cloudflared.exe moi nhat vao thu muc co dinh (neu chưa có)
-if (Test-Path $CloudflaredPath) {
-    Write-Host "-> Da tim thay cloudflared.exe tai [$CloudflaredPath], bo qua buoc tai!" -ForegroundColor Green
-}
-elseif (Test-Path "C:\Program Files (x86)\cloudflared\cloudflared.exe") {
-    Write-Host "-> Da tim thay cloudflared.exe trong Program Files (x86), dang sao chep..." -ForegroundColor Green
-    Copy-Item -Path "C:\Program Files (x86)\cloudflared\cloudflared.exe" -Destination $CloudflaredPath -Force
-}
-elseif (Get-Command cloudflared -ErrorAction SilentlyContinue) {
-    $existingCmd = (Get-Command cloudflared).Source
-    Write-Host "-> Da tim thay cloudflared tai [$existingCmd], dang sao chep..." -ForegroundColor Green
-    Copy-Item -Path $existingCmd -Destination $CloudflaredPath -Force
-}
-else {
-    Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
-}
-
-# Cai dat service cloudflared moi voi token
-Write-Host "Dang cai dat service cloudflared moi..."
+# 3. Cai dat va chay service voi Token moi
+Write-Host "Dang cai dat va kich hoat service cloudflared voi Token moi..." -ForegroundColor Cyan
 & $CloudflaredPath service install $TunnelToken
 
 Start-Sleep -Seconds 2
 if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
     Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue
     Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue
-    Write-Host "-> Service cloudflared da duoc khoi chay thanh cong!" -ForegroundColor Green
+    Write-Host "-> Service cloudflared da duoc khoi chay thanh cong voi Token moi!" -ForegroundColor Green
 } else {
-    Write-Host "-> [CANH BAO] Khong tim me service cloudflared sau khi install." -ForegroundColor Yellow
+    Write-Host "-> [CANH BAO] Khong tim thay service cloudflared sau khi install." -ForegroundColor Yellow
 }
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
