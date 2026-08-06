@@ -228,11 +228,6 @@ catch {
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "3. TẢI VÀ INSTALL CLOUDFLARED SERVICE" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-$CloudflaredPath = "$env:TEMP\cloudflared.exe"
-
-Write-Host "Đang tải về cloudflared-windows-amd64.exe mới nhất..."
-Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
-
 Write-Host "Kiểm tra và dừng các dịch vụ / tiến trình cloudflared cũ nếu đang chạy..."
 
 if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
@@ -247,6 +242,14 @@ if ($runningProcesses) {
     Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
 }
+
+Remove-Item -Path "$env:TEMP\cloudflared*.exe" -Force -ErrorAction SilentlyContinue
+
+$CloudflaredPath = "$env:TEMP\cloudflared_$([guid]::NewGuid().ToString('N').Substring(0,8)).exe"
+
+Write-Host "Đang tải về cloudflared-windows-amd64.exe mới nhất..."
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
 Write-Host "Đang gọi lệnh gỡ và cài đặt service cloudflared mới..."
 try {
@@ -264,7 +267,7 @@ if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "Dọn dẹp file tạm cài đặt..."
-Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
+Remove-Item $CloudflaredPath -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "4. CẤU HÌNH SSH AUTHORIZED KEYS" -ForegroundColor Cyan

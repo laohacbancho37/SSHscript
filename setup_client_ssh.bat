@@ -237,11 +237,6 @@ try {
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "3. TAI VA INSTALL CLOUDFLARED SERVICE" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-$CloudflaredPath = "$env:TEMP\cloudflared.exe"
-
-Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
-Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
-
 Write-Host "Kiem tra va dung cac dich vu / tien trinh cloudflared cu neu dang chay..."
 
 if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
@@ -256,6 +251,14 @@ if ($runningProcesses) {
     Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
 }
+
+Remove-Item -Path "$env:TEMP\cloudflared*.exe" -Force -ErrorAction SilentlyContinue
+
+$CloudflaredPath = "$env:TEMP\cloudflared_$([guid]::NewGuid().ToString('N').Substring(0,8)).exe"
+
+Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
 Write-Host "Dang goi lenh go va cai dat service cloudflared moi..."
 try {
@@ -273,7 +276,7 @@ if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "Don dep file tam..."
-Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
+Remove-Item $CloudflaredPath -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "4. CAU HINH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
