@@ -9,12 +9,8 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     if ($MyInvocation.MyCommand.Path) {
         Write-Host "Dang tu dong mo lai cua so voi quyen Administrator. Vui long chon 'Yes'..." -ForegroundColor Cyan
         Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs
-<<<<<<< HEAD
-    } else {
-=======
     }
     else {
->>>>>>> parent of cd6d4d4 (a)
         Write-Host "[!] Ban dang chay script truc tiep tu link (Fileless - irm)." -ForegroundColor Red
         Write-Host "Hien tai PowerSheh Chua Co Quyen Admin!" -ForegroundColor Red
         Write-Host "Vui long dong cua so nay, roi lam tiep cac buoc sau:" -ForegroundColor Yellow
@@ -64,29 +60,13 @@ $SshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMk83rs0xpy8XOhogglSmppmkYe
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "1." -ForegroundColor Cyan
-=======
 Write-Host "1. BẬT TÍNH NĂNG OPENSSH SERVER TRÊN WINDOWS" -ForegroundColor Cyan
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "1. BẬT TÍNH NĂNG OPENSSH SERVER TRÊN WINDOWS" -ForegroundColor Cyan
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "1. BẬT TÍNH NĂNG OPENSSH SERVER TRÊN WINDOWS" -ForegroundColor Cyan
->>>>>>> parent of cd6d4d4 (a)
 Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "Kiem tra trang thai service OpenSSH Server (sshd) tren may..."
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
     Write-Host "-> Service OpenSSH Server da duoc cai dat." -ForegroundColor Green
-<<<<<<< HEAD
-} else {
-=======
 }
 else {
->>>>>>> parent of cd6d4d4 (a)
     Write-Host "Đang tải và cài đặt OpenSSH Service phiên bản mới nhất từ GitHub..."
     $ZipPath = "$env:TEMP\OpenSSH-Win64.zip"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -96,13 +76,7 @@ else {
     Expand-Archive -Path $ZipPath -DestinationPath $env:ProgramFiles -Force
     $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
     
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    Write-Host "."
-=======
     Write-Host "Cài đặt service sshd..."
->>>>>>> parent of cd6d4d4 (a)
     Push-Location $OpenSshDir
     try {
         & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
@@ -116,22 +90,7 @@ else {
         $retry++
     }
 
-<<<<<<< HEAD
-    Write-Host " ."
-=======
-=======
->>>>>>> parent of 3ccbf7a (a)
-    Write-Host "Cài đặt service sshd..."
-    & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
-    
     Write-Host "Sửa quyền File Host Key..."
-<<<<<<< HEAD
->>>>>>> parent of 3ccbf7a (a)
-=======
->>>>>>> parent of 3ccbf7a (a)
-=======
-    Write-Host "Sửa quyền File Host Key..."
->>>>>>> parent of cd6d4d4 (a)
     $HostKeyDir = "$env:ProgramData\ssh"
     if (Test-Path $HostKeyDir) {
         $keys = Get-ChildItem -Path $HostKeyDir -Filter "*_key"
@@ -151,27 +110,11 @@ else {
     New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "."
-=======
 Write-Host "Khoi dong va cau hinh service sshd tu dong bat cung Windows..."
->>>>>>> parent of cd6d4d4 (a)
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
     Start-Service sshd -ErrorAction SilentlyContinue
     Set-Service -Name sshd -StartupType 'Automatic' -ErrorAction SilentlyContinue
 }
-<<<<<<< HEAD
-=======
-=======
->>>>>>> parent of 3ccbf7a (a)
-Write-Host "Khoi dong va cau hinh service sshd tu dong bat cung Windows..."
-Start-Service sshd -ErrorAction SilentlyContinue
-Set-Service -Name sshd -StartupType 'Automatic'
->>>>>>> parent of 3ccbf7a (a)
-=======
->>>>>>> parent of cd6d4d4 (a)
 
 if (!(Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue | Select-Object Name, Enabled)) {
     Write-Host "Dang mo Firewall cho OpenSSH (Port 22 Inbound)..."
@@ -182,50 +125,13 @@ Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "2. TUONG TAC VOI CLOUDFLARE API" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-$InputName = Read-Host ": "
-=======
 $InputName = Read-Host "Nhập tên Tunnel phụ domain (Để trống máy sẽ tự động tìm tên ssh00X chưa được cấp)"
->>>>>>> parent of 3ccbf7a (a)
-=======
-$InputName = Read-Host "Nhập tên Tunnel phụ domain (Để trống máy sẽ tự động tìm tên ssh00X chưa được cấp)"
->>>>>>> parent of 3ccbf7a (a)
-=======
-$InputName = Read-Host "Nhập tên Tunnel phụ domain (Để trống máy sẽ tự động tìm tên ssh00X chưa được cấp)"
->>>>>>> parent of cd6d4d4 (a)
 
 $Headers = @{
     "Authorization" = "Bearer $CloudflareAPIToken"
     "Content-Type"  = "application/json"
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "->..."
-=======
-Write-Host "-> Đang kiểm tra danh sách Tunnel hiện có trên Cloudflare để xử lý cấp tên..."
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "-> Đang kiểm tra danh sách Tunnel hiện có trên Cloudflare để xử lý cấp tên..."
->>>>>>> parent of 3ccbf7a (a)
-try {
-    $TunnelsRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel?is_deleted=false&per_page=100" -Method Get -Headers $Headers
-    $ExistingTunnels = @($TunnelsRes.result.name)
-} catch {
-    $ExistingTunnels = @()
-<<<<<<< HEAD
-<<<<<<< HEAD
-    Write-Host "!!!" -ForegroundColor Yellow
-=======
-    Write-Host "   [CẢNH BÁO] Không thể lấy danh sách tunnel để kiểm tra trùng lặp." -ForegroundColor Yellow
->>>>>>> parent of 3ccbf7a (a)
-=======
-    Write-Host "   [CẢNH BÁO] Không thể lấy danh sách tunnel để kiểm tra trùng lặp." -ForegroundColor Yellow
->>>>>>> parent of 3ccbf7a (a)
-=======
 Write-Host "-> Đang kiểm tra danh sách Tunnel hiện có trên Cloudflare để xử lý cấp tên..."
 try {
     $TunnelsRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel?is_deleted=false&per_page=100" -Method Get -Headers $Headers
@@ -234,7 +140,6 @@ try {
 catch {
     $ExistingTunnels = @()
     Write-Host "   [CẢNH BÁO] Không thể lấy danh sách tunnel để kiểm tra trùng lặp." -ForegroundColor Yellow
->>>>>>> parent of cd6d4d4 (a)
 }
 
 if ([string]::IsNullOrWhiteSpace($InputName)) {
@@ -244,12 +149,8 @@ if ([string]::IsNullOrWhiteSpace($InputName)) {
         $i++
     } while ($ExistingTunnels -contains $TunnelName)
     Write-Host "-> Để trống tên, hệ thống tự cấp: $TunnelName" -ForegroundColor Green
-<<<<<<< HEAD
-} else {
-=======
 }
 else {
->>>>>>> parent of cd6d4d4 (a)
     $TunnelName = $InputName
     $i = 1
     while ($ExistingTunnels -contains $TunnelName) {
@@ -258,12 +159,8 @@ else {
     }
     if ($TunnelName -ne $InputName) {
         Write-Host "-> Tên [$InputName] đã tồn tại, tự động đổi thành: $TunnelName" -ForegroundColor Yellow
-<<<<<<< HEAD
-    } else {
-=======
     }
     else {
->>>>>>> parent of cd6d4d4 (a)
         Write-Host "-> Sử dụng tên: $TunnelName" -ForegroundColor Green
     }
 }
@@ -285,29 +182,10 @@ $TunnelBody = @{
 try {
     $TunnelRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel" -Method Post -Headers $Headers -Body $TunnelBody
     $TunnelId = $TunnelRes.result.id
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    Write-Host "   => Thanh cong!" -ForegroundColor Green
-}
-catch {
-    Write-Host "   => [LOI] ." -ForegroundColor Red
-=======
-    Write-Host "   => Thanh cong! Tunnel ID: $TunnelId" -ForegroundColor Green
-} catch {
-    Write-Host "   => [LOI] Khong the tao Tunnel. Hay chac chan API Token co quyen Account Zero Trust va Account ID dung." -ForegroundColor Red
->>>>>>> parent of 3ccbf7a (a)
-=======
-    Write-Host "   => Thanh cong! Tunnel ID: $TunnelId" -ForegroundColor Green
-} catch {
-    Write-Host "   => [LOI] Khong the tao Tunnel. Hay chac chan API Token co quyen Account Zero Trust va Account ID dung." -ForegroundColor Red
->>>>>>> parent of 3ccbf7a (a)
-=======
     Write-Host "   => Thanh cong! Tunnel ID: $TunnelId" -ForegroundColor Green
 }
 catch {
     Write-Host "   => [LOI] Khong the tao Tunnel. Hay chac chan API Token co quyen Account Zero Trust va Account ID dung." -ForegroundColor Red
->>>>>>> parent of cd6d4d4 (a)
     Write-Host "   Chi tiet: $( $_.ErrorDetails.Message )"
     exit
 }
@@ -317,12 +195,8 @@ Write-Host "-> Dang lay token dung cho cloudflared service..."
 try {
     $TokenRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/token" -Method Get -Headers $Headers
     $TunnelToken = $TokenRes.result
-<<<<<<< HEAD
-} catch {
-=======
 }
 catch {
->>>>>>> parent of cd6d4d4 (a)
     Write-Host "   => [LOI] Khong the lay token." -ForegroundColor Red
     exit
 }
@@ -346,12 +220,8 @@ $ConfigBody = @{
 try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/configurations" -Method Put -Headers $Headers -Body $ConfigBody | Out-Null
     Write-Host "   => Da cau hinh Ingress Rule thanh cong" -ForegroundColor Green
-<<<<<<< HEAD
-} catch {
-=======
 }
 catch {
->>>>>>> parent of cd6d4d4 (a)
     Write-Host "   => [CANH BAO] Khong the thiet lap cau hinh Tunnel Ingress." -ForegroundColor Yellow
 }
 
@@ -367,12 +237,8 @@ $DnsBody = @{
 try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records" -Method Post -Headers $Headers -Body $DnsBody | Out-Null
     Write-Host "   => Hoan tat tao DNS CNAME Record." -ForegroundColor Green
-<<<<<<< HEAD
-} catch {
-=======
 }
 catch {
->>>>>>> parent of cd6d4d4 (a)
     Write-Host "   => [CANH BAO] Khong the tao DNS Record, co the record nay da ton tai." -ForegroundColor Yellow
 }
 
@@ -384,28 +250,12 @@ $CloudflaredPath = "$env:TEMP\cloudflared.exe"
 Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
 Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "..."
-=======
-Write-Host "Dang goi lenh cai dat service voi Token..."
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "Dang goi lenh cai dat service voi Token..."
->>>>>>> parent of 3ccbf7a (a)
-# Thu go cai dat service cu (neu co) truoc khi cai moi
-try {
-    & $CloudflaredPath service uninstall *>&1 | Out-Null
-} catch {}
-=======
 Write-Host "Dang goi lenh cai dat service voi Token..."
 # Thu go cai dat service cu (neu co) truoc khi cai moi
 try {
     & $CloudflaredPath service uninstall *>&1 | Out-Null
 }
 catch {}
->>>>>>> parent of cd6d4d4 (a)
 
 # Xoa cac EventLog Registry bi ket de tranh loi "registry key already exists"
 Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue
@@ -419,19 +269,7 @@ Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
 Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "4. CAU HINH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "..."
-=======
 Write-Host "Gan Public Key cua ban vao he thong SSH Windows..."
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "Gan Public Key cua ban vao he thong SSH Windows..."
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "Gan Public Key cua ban vao he thong SSH Windows..."
->>>>>>> parent of cd6d4d4 (a)
 
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
@@ -469,39 +307,16 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 }
 
 Write-Host "`n===========================================" -ForegroundColor Green
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-Write-Host "." -ForegroundColor Green
-Write-Host "===========================================" -ForegroundColor Green
-Write-Host "!"
-=======
-=======
->>>>>>> parent of cd6d4d4 (a)
 Write-Host "[HOAN TAT] MAY KHACH DA DUOC CAU HINH THANH CONG!" -ForegroundColor Green
 Write-Host "===========================================" -ForegroundColor Green
 Write-Host "Tu bay gio, ban co thi ssh tu may tinh cua ban ve may khach ma khong can mo port mang."
 Write-Host "Ban thao tac tiep ben may ca nhan, them cau hinh ProxyCommand."
-<<<<<<< HEAD
->>>>>>> parent of 3ccbf7a (a)
-=======
-Write-Host "[HOAN TAT] MAY KHACH DA DUOC CAU HINH THANH CONG!" -ForegroundColor Green
-Write-Host "===========================================" -ForegroundColor Green
-Write-Host "Tu bay gio, ban co thi ssh tu may tinh cua ban ve may khach ma khong can mo port mang."
-Write-Host "Ban thao tac tiep ben may ca nhan, them cau hinh ProxyCommand."
->>>>>>> parent of 3ccbf7a (a)
-=======
->>>>>>> parent of cd6d4d4 (a)
 
 Write-Host "`nNhan phim bat ky de thoat..." -ForegroundColor Cyan
 try {
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-<<<<<<< HEAD
-} catch {
-=======
 }
 catch {
->>>>>>> parent of cd6d4d4 (a)
     # Fileless execution hoac console khong the doc phim
     Start-Sleep -Seconds 10
 }
