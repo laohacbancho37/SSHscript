@@ -250,18 +250,36 @@ $CloudflaredPath = "$env:TEMP\cloudflared.exe"
 Write-Host "Dang tai ve cloudflared-windows-amd64.exe moi nhat..."
 Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
-Write-Host "Dang goi lenh cai dat service voi Token..."
-# Thu go cai dat service cu (neu co) truoc khi cai moi
+Write-Host "Kiem tra va dung cac dich vu / tien trinh cloudflared cu neu dang chay..."
+
+if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
+    Write-Host "-> Dang dung service cloudflared cu..." -ForegroundColor Yellow
+    Stop-Service -Name "cloudflared" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
+$runningProcesses = Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue
+if ($runningProcesses) {
+    Write-Host "-> Dang tat cac tien trinh cloudflared.exe dang chay ngam..." -ForegroundColor Yellow
+    Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
+Write-Host "Dang goi lenh gơ va cai dat service cloudflared moi..."
 try {
     & $CloudflaredPath service uninstall *>&1 | Out-Null
 }
 catch {}
 
-# Xoa cac EventLog Registry bi ket de tranh loi "registry key already exists"
 Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue
 
 Start-Sleep -Seconds 2
 & $CloudflaredPath service install $TunnelToken
+
+if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
+    Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue
+    Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue
+}
 
 Write-Host "Don dep file tam..."
 Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
@@ -284,7 +302,8 @@ if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) 
 
 # Cap quyen cứng cho Standard user
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-icacls.exe $AuthorizedKeysPath /grant "$($env:USERNAME):(R,W)" | Out-Null
+$UserPermission = "$env:USERNAME:(R,W)"
+icacls.exe $AuthorizedKeysPath /grant $UserPermission | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {

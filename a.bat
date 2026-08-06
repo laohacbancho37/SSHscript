@@ -233,18 +233,35 @@ $CloudflaredPath = "$env:TEMP\cloudflared.exe"
 Write-Host "Đang tải về cloudflared-windows-amd64.exe mới nhất..."
 Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $CloudflaredPath -UseBasicParsing
 
-Write-Host "Đang gọi lệnh cài đặt service với Token..."
-# Cài đặt cloudflared chạy ngầm dưới dạng Service
-# Thử gỡ cài đặt service cũ để tránh conflict, bỏ qua lỗi nếu không tồn tại
+Write-Host "Kiểm tra và dừng các dịch vụ / tiến trình cloudflared cũ nếu đang chạy..."
+
+if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
+    Write-Host "-> Đang dừng service cloudflared cũ..." -ForegroundColor Yellow
+    Stop-Service -Name "cloudflared" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
+$runningProcesses = Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue
+if ($runningProcesses) {
+    Write-Host "-> Đang tắt các tiến trình cloudflared.exe đang chạy ngầm..." -ForegroundColor Yellow
+    Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
+Write-Host "Đang gọi lệnh gỡ và cài đặt service cloudflared mới..."
 try {
     & $CloudflaredPath service uninstall *>&1 | Out-Null
 } catch {}
 
-# Xóa các EventLog Registry bị kẹt để tránh lỗi "registry key already exists"
 Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue
 
 Start-Sleep -Seconds 2
 & $CloudflaredPath service install $TunnelToken
+
+if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
+    Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue
+    Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue
+}
 
 Write-Host "Dọn dẹp file tạm cài đặt..."
 Remove-Item $CloudflaredPath -ErrorAction SilentlyContinue
