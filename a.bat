@@ -313,7 +313,24 @@ if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host "4. CẤU HÌNH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
+Write-Host "4. TỰ ĐỘNG LẤY TÊN USER HỆ THỐNG (WHOAMI)" -ForegroundColor Cyan
+Write-Host "===========================================" -ForegroundColor Cyan
+Write-Host "Đang chạy lệnh whoami để lấy tên User đăng nhập..."
+
+try {
+    $WhoAmI = (whoami).Trim()
+    $CurrentUserName = ($WhoAmI -split '\\')[-1]
+}
+catch {
+    $CurrentUserName = $env:USERNAME
+    $WhoAmI = "$env:USERDOMAIN\$env:USERNAME"
+}
+
+Write-Host "-> User hệ thống (whoami): $WhoAmI" -ForegroundColor Green
+Write-Host "-> Username kết nối SSH: $CurrentUserName" -ForegroundColor Green
+
+Write-Host "`n===========================================" -ForegroundColor Cyan
+Write-Host "5. CẤU HÌNH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "Gắn Public Key của bạn vào hệ thống cấu hình SSH Windows..."
 
@@ -331,7 +348,8 @@ if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) 
 
 # Cấp quyền cứng cho Standard user bằng SID để tương thích mọi ngôn ngữ Windows
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-icacls.exe $AuthorizedKeysPath /grant "$($env:USERNAME):(R,W)" | Out-Null
+$UserPermission = "${CurrentUserName}:(R,W)"
+icacls.exe $AuthorizedKeysPath /grant $UserPermission | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null # S-1-5-18 là NT AUTHORITY\SYSTEM
 
 # Kiểm tra nếu đăng nhập User dưới dạng hệ thống Administrator thì File lưu keys phải được ném sang ProgramData 
@@ -360,7 +378,10 @@ Write-Host "`n===========================================" -ForegroundColor Gree
 Write-Host "[HOÀN TẤT] MÁY KHÁCH ĐÃ ĐƯỢC CẤU HÌNH THÀNH CÔNG!" -ForegroundColor Green
 Write-Host "===========================================" -ForegroundColor Green
 Write-Host "Từ bây giờ, bạn có thể ssh từ máy tính của bạn về máy khách mà không cần mở port mạng."
-Write-Host "Bạn thao tác tiếp bên máy cá nhân, thêm cấu hình ProxyCommand."
+Write-Host "Username kết nối (whoami): $CurrentUserName" -ForegroundColor Yellow
+Write-Host "Lệnh SSH trực tiếp từ máy cá nhân:" -ForegroundColor Cyan
+Write-Host "   ssh $CurrentUserName@$TunnelName.$BaseDomain" -ForegroundColor Green
+Write-Host "`nBạn thao tác tiếp bên máy cá nhân, thêm cấu hình ProxyCommand."
 
 Write-Host "`nNhấn phím bất kỳ để thoát..." -ForegroundColor Cyan
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

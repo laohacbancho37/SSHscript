@@ -322,9 +322,26 @@ if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host "4. CAU HINH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
+Write-Host "4. TỰ ĐỘNG LẤY TÊN USER HỆ THỐNG (WHOAMI)" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "Gan Public Key cua ban vao he thong SSH Windows..."
+Write-Host "Đang chạy lệnh whoami để lấy tên User đăng nhập..."
+
+try {
+    $WhoAmI = (whoami).Trim()
+    $CurrentUserName = ($WhoAmI -split '\\')[-1]
+}
+catch {
+    $CurrentUserName = $env:USERNAME
+    $WhoAmI = "$env:USERDOMAIN\$env:USERNAME"
+}
+
+Write-Host "-> User hệ thống (whoami): $WhoAmI" -ForegroundColor Green
+Write-Host "-> Username kết nối SSH: $CurrentUserName" -ForegroundColor Green
+
+Write-Host "`n===========================================" -ForegroundColor Cyan
+Write-Host "5. CẤU HÌNH SSH AUTHORIZED KEYS" -ForegroundColor Cyan
+Write-Host "===========================================" -ForegroundColor Cyan
+Write-Host "Gán Public Key của bạn vào hệ thống SSH Windows..."
 
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
@@ -337,13 +354,14 @@ if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) 
     Add-Content -Path $AuthorizedKeysPath -Value $SshPublicKey
 }
 
-# Cap quyen cứng cho Standard user
+# Cấp quyền cho Standard user
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-icacls.exe $AuthorizedKeysPath /grant "$($env:USERNAME):(R,W)" | Out-Null
+$UserPermission = "${CurrentUserName}:(R,W)"
+icacls.exe $AuthorizedKeysPath /grant $UserPermission | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Do may nam trong quyen Administrator Server, khoa tu dong clone vao ProgramData/ssh..."
+    Write-Host "Do máy nằm trong quyền Administrator Server, khóa tự động clone vào ProgramData/ssh..."
     $AdminSshDir = "$env:ProgramData\ssh"
     if (!(Test-Path $AdminSshDir)) { 
         New-Item -ItemType Directory -Force -Path $AdminSshDir | Out-Null
@@ -362,10 +380,13 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 }
 
 Write-Host "`n===========================================" -ForegroundColor Green
-Write-Host "[HOAN TAT] MAY KHACH DA DUOC CAU HINH THANH CONG!" -ForegroundColor Green
+Write-Host "[HOÀN TẤT] MÁY KHÁCH ĐÃ ĐƯỢC CẤU HÌNH THÀNH CÔNG!" -ForegroundColor Green
 Write-Host "===========================================" -ForegroundColor Green
-Write-Host "Tu bay gio, ban co the ssh tu may tinh cua ban ve may khach ma khong can mo port mang."
-Write-Host "Ban thao tac tiep ben may ca nhan, them cau hinh ProxyCommand."
+Write-Host "Từ bây giờ, bạn có thể SSH từ máy tính của bạn về máy khách mà không cần mở port mạng."
+Write-Host "Username kết nối (whoami): $CurrentUserName" -ForegroundColor Yellow
+Write-Host "Lệnh SSH trực tiếp từ máy cá nhân:" -ForegroundColor Cyan
+Write-Host "   ssh $CurrentUserName@$TunnelName.$BaseDomain" -ForegroundColor Green
+Write-Host "`nBạn thao tác tiếp bên máy cá nhân, thêm cấu hình ProxyCommand."
 
 Write-Host "`nNhan phim bat ky de thoat..." -ForegroundColor Cyan
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
