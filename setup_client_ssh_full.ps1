@@ -148,8 +148,6 @@ Write-Host "`n===========================================" -ForegroundColor Cyan
 Write-Host "2. TUONG TAC VOI CLOUDFLARE API" -ForegroundColor Cyan
 Write-Host "===========================================" -ForegroundColor Cyan
 
-$InputName = Read-Host "Nhập tên Tunnel phụ domain (Để trống máy sẽ tự động tìm tên ssh00X chưa được cấp)"
-
 $Headers = @{
     "Authorization" = "Bearer $CloudflareAPIToken"
     "Content-Type"  = "application/json"
@@ -165,27 +163,27 @@ catch {
     Write-Host "   [CẢNH BÁO] Không thể lấy danh sách tunnel để kiểm tra trùng lặp." -ForegroundColor Yellow
 }
 
-if ([string]::IsNullOrWhiteSpace($InputName)) {
-    $i = 1
-    do {
-        $TunnelName = "ssh{0:D3}" -f $i
-        $i++
-    } while ($ExistingTunnels -contains $TunnelName)
-    Write-Host "-> Để trống tên, hệ thống tự cấp: $TunnelName" -ForegroundColor Green
+$whoamiUser = (whoami).Split('\')[-1].Trim() -replace '[^a-zA-Z0-9-]', ''
+if ([string]::IsNullOrWhiteSpace($whoamiUser)) {
+    $whoamiUser = $env:USERNAME -replace '[^a-zA-Z0-9-]', ''
+}
+if ([string]::IsNullOrWhiteSpace($whoamiUser)) {
+    $whoamiUser = "sshuser"
+}
+
+$InputName = $whoamiUser
+$TunnelName = $InputName
+$i = 1
+while ($ExistingTunnels -contains $TunnelName) {
+    $TunnelName = "$InputName$i"
+    $i++
+}
+
+if ($TunnelName -ne $InputName) {
+    Write-Host "-> Tên [$InputName] từ whoami đã tồn tại, tự động đổi thành: $TunnelName" -ForegroundColor Yellow
 }
 else {
-    $TunnelName = $InputName
-    $i = 1
-    while ($ExistingTunnels -contains $TunnelName) {
-        $TunnelName = "$InputName$i"
-        $i++
-    }
-    if ($TunnelName -ne $InputName) {
-        Write-Host "-> Tên [$InputName] đã tồn tại, tự động đổi thành: $TunnelName" -ForegroundColor Yellow
-    }
-    else {
-        Write-Host "-> Sử dụng tên: $TunnelName" -ForegroundColor Green
-    }
+    Write-Host "-> Tự động đặt tên Tunnel theo whoami: $TunnelName" -ForegroundColor Green
 }
 
 # Tao Secret 
