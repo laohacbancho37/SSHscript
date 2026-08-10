@@ -305,7 +305,7 @@ if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) 
 }
 
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-icacls.exe $AuthorizedKeysPath /grant "*$UserSid:(F)" | Out-Null
+icacls.exe $AuthorizedKeysPath /grant "*${UserSid}:(F)" | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
