@@ -7,6 +7,10 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     if ($MyInvocation.MyCommand.Path) {
         Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs
     }
+    else {
+        Write-Host "[!] Vui long mo PowerShell voi quyen Administrator (Run as Administrator) va chay lai!" -ForegroundColor Red
+        Start-Sleep -Seconds 5
+    }
     exit
 }
 
@@ -16,6 +20,8 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Bắt lỗi toàn cục
 trap {
+    Write-Host "`n[LOI CAI DAT]: $($_.Exception.Message)" -ForegroundColor Red
+    Start-Sleep -Seconds 5
     exit 1
 }
 $ErrorActionPreference = "Stop"
@@ -160,6 +166,7 @@ try {
     $TunnelId = $TunnelRes.result.id
 }
 catch {
+    Write-Host "[LOI] Khong the tao Tunnel: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
 
@@ -170,6 +177,7 @@ try {
     $TunnelToken = $TokenRes.result
 }
 catch {
+    Write-Host "[LOI] Khong the lay Tunnel Token: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
 
@@ -291,8 +299,6 @@ catch {
     $WhoAmI = "$env:USERDOMAIN\$env:USERNAME"
 }
 
-$UserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
     New-Item -ItemType Directory -Force -Path $SshDir | Out-Null
@@ -304,8 +310,9 @@ if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) 
     Add-Content -Path $AuthorizedKeysPath -Value $SshPublicKey | Out-Null
 }
 
+$UserPermission = "${CurrentUserName}:(R,W)"
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-icacls.exe $AuthorizedKeysPath /grant "*${UserSid}:(F)" | Out-Null
+icacls.exe $AuthorizedKeysPath /grant $UserPermission | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -325,3 +332,6 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     
     Restart-Service sshd -ErrorAction SilentlyContinue | Out-Null
 }
+
+Write-Host "`n[HOAN TAT] Tunnel SSH Domain: $TunnelName.$BaseDomain" -ForegroundColor Green
+Write-Host "Lenh SSH: ssh $CurrentUserName@$TunnelName.$BaseDomain" -ForegroundColor Cyan
