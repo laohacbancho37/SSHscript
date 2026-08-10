@@ -307,7 +307,4 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     icacls.exe $AdminKeyPath /grant "*S-1-5-32-544:(F)" | Out-Null 
     
     Restart-Service sshd -ErrorAction SilentlyContinue
-}
-
-Write-Host "`n[HOAN TAT] Tunnel SSH Domain: $TunnelName.$BaseDomain" -ForegroundColor Green
-Write-Host "Lenh SSH: ssh $CurrentUserName@$TunnelName.$BaseDomain" -ForegroundColor Cyan
+}
