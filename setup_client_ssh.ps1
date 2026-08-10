@@ -220,7 +220,7 @@ try {
     Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/accounts/$CloudflareAccountId/cfd_tunnel/$TunnelId/configurations" -Method Put -Headers $Headers -Body $ConfigBody | Out-Null
    
 }
-catch {
+
    
 
 # [2.3.2] Tao CNAME DNS 
